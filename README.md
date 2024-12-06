@@ -24,8 +24,6 @@ The optimal study design is determined by minimizing the variance of the treatme
 
 ## Files
 
-### Report files
-
 -   `Project 3 - Simulation.qmd` - R quarto file that contains the code for visualization, and simulation results
 -   `vary all parameters normal.R` - R script file that records function to test the impact of varying all parameters on the variance of the treatment effect estimates for $Y_{ij} \sim$ normal distribution
 -   `vary all parameters poisson.R` - R script file that records function to test the impact of varying all parameters on the variance of the treatment effect estimates for $Y_{ij} \sim$ Poisson distribution
@@ -35,16 +33,16 @@ The optimal study design is determined by minimizing the variance of the treatme
 
 
 ## Libraries
-lme4 - for fitting the mixed effects model
+`lme4` - for fitting the mixed effects model
 
-purrr - rbinom generating random numbers
+`purrr` - rbinom generating random numbers
 
-ggplot2 - visualization
+`ggplot2` - visualization
 
-latex2exp - for latex expressions
+`latex2exp` - for latex expressions
 
-tidyverse - data manipulation
+`tidyverse` - data manipulation
 
-ggpubr - visualization
+`ggpubr` - visualization
 
 
