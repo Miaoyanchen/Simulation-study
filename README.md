@@ -20,7 +20,7 @@ For $Y_{ij} \sim$ Poisson distribution:
 
 
 ### Results
-The optimal study design is determined by minimizing the variance of the treatment effect estimates (\(\text{Var}(\hat{\beta})\)). The optimal study design is largely influenced by the between cluster correlation, and the budget constraint.
+The optimal study design is determined by minimizing the variance of the treatment effect estimates Var($\hat{\beta}$). The optimal study design is largely influenced by the between cluster correlation, and the budget constraint.
 
 ## Files
 
