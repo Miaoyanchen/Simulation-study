@@ -2,7 +2,7 @@
 # Determine the optimal study design under a fixed budget
 
 ## Aim
-This project explores the impact of study design parameters on the precision of treatment effect estimates (\(\hat{\beta}\)) in cluster-randomized trials under a fixed budget constraint. We aim to determine the optimal study design that lowers the variance of the treatment effect estimates.
+This project explores the impact of study design parameters on the precision of treatment effect estimates $\hat{\beta}$ in cluster-randomized trials under a fixed budget constraint. We aim to determine the optimal study design that lowers the variance of the treatment effect estimates.
 
 
 ## Model Framework
