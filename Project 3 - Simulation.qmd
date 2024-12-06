@@ -1,0 +1,599 @@
+---
+title: "Determine the optimal study design under a fixed budget constraint"
+subtitle: "A simulation study"
+author: "Miaoyan Chen"
+format: pdf
+editor: visual
+---
+
+# Introduction
+
+In a clustered randomized trial (CRT), groups or clusters of subjects are randomly assigned to either the intervention/treatment group or the control group. Subjects within the same cluster are expected to exhibit more similar traits and characteristics compared to subjects in other clusters. This introduces both intra-cluster and inter-cluster correlations, which must be considered when designing the experiment. Ideally, independent observations from each participant are preferred over multiple measurements from the same participant. However, when a trial is constrained by budget or time, taking multiple measurements from the same subject may or may not be beneficial, depending on the setup. The purpose of this simulation is to determine the optimal number of clusters and the number of observations within each cluster under a fixed budget constraint B.
+
+Suppose we have our budget fixed at 2000 units. The cost of sampling a new individual is $C_1$ unit(s), and the cost of taking additional measurements on the same individual is $C_2$ unit(s), where $c_2$ is cheaper than $c_1$. We will explore two clustered scenarios by introducing linear and poisson hierarchical models, incorporating both fixed and random effects.
+
+# Setup
+
+To begin, let us consider the setting that $Y$ follows a normal distribution. Let $X_i$ be a binary indicator of whether or not cluster $i$ is assigned to the treatment group ($X = 0:$ control, $X = 1$: treatment) and let $Y_{ij}$ be the observed outcome. To estimate the treatment effect, we will assume a hierarchical model for $Y_{ij}$ where: $$
+Y_{ij} | \mu_i \sim N(\mu_i, \sigma^2)
+$$ This implies that each observation $Y_{ij}$ within a cluster $i$ is normally distributed around the cluster mean $\mu_i$, with variance $\sigma^2$. $\sigma^2$ is the deviation between individual observations $Y_{ij}$ from the cluster mean $\mu_i$. A larger $\sigma^2$ indicates more variability within a cluster.
+
+$$\mu_i = \mu_{i0} + \epsilon_i \quad \text{where} \quad \epsilon_i \sim N(0, \gamma^2) $$
+
+Here we have the cluster mean $\mu_i$ centered around $\mu_{i0}$, with some variability introduced by random effect $\epsilon_i$ that is normally distributed with mean 0 and variance $\gamma^2$. $\gamma^2$ controls for between cluster variation, with larger $\gamma^2$ meaning more heterogeneity across clusters. $$
+\mu_{i0} = \alpha + \beta X_i
+$$ $\alpha$ is the intercept, representing the average mean outcome for the control group. $X_i$ is the binary treatment indicator ($0$ for control, $1$ for treatment) for the $i-$th cluster, therefore $\beta$ represents the average treatment effect (when $X_i = 1$).
+
+We also consider the poisson distribution for $Y$ with the following structure: $$
+\log(\mu_i) \sim \mathcal{N}(\alpha + \beta X_i, \gamma^2),
+$$ where $\alpha$ is the log-mean intercept, $\beta$ is the log-treatment effect, and $\gamma^2$ is the inter-cluster variability. $$
+Y_{ij} \mid \mu_i \sim \text{Poisson}(\mu_i), \quad j = 1, \dots, R,
+$$ where $R$ is the number of repeated measurements within cluster $i$. The aggregated cluster mean is given as: $$
+\bar{Y}_i = \sum_{j=1}^R Y_{ij} \sim \text{Poisson}(R \mu_i).
+$$
+
+# Simulation
+
+## ADEMP Framework
+
+### **Aim**
+
+1\. To assess the performance of different study designs for estimating the average treatment effect $\beta$ under a fixed budget $B = 2000$ by varying the number of clusters ($G$), observations per cluster ($R$), and cost ratios ($c_1/c_2$) in a cluster randomized trial.
+
+2\. To examine how the cost ratio and model parameters influence the optimal strategy.
+
+### **Data-generation mechanism**
+
+The data generation process consists of two steps. First, we consider the budget amount and the relative costs of $c_1$ and $c_2$ to determine the number of clusters ($G$) and the number of observations per cluster ($R$). Data is simulated with a fixed budget of $B = 2000$, and three cases of relative cost ratios are considered in the data generation mechanism such that $C_2 < C_1$, using the budget constraint inequality. The budget constraint is given by:
+
+$$
+G \cdot c_1 + (G * (R-1)) \cdot c_2 \leq B
+$$
+
+**Case 1:** $c_1 = 50, c_2 = 10 \rightarrow c_1/c_2 = 5$ i.e., cost of repeated measures is cheaper than new samples
+
+**Case 2:** $c_1 = 50, c_2 = 1 \rightarrow  c_1/c_2 = 50$ i.e., cost of repeated measures is much cheaper than new samples
+
+**Case 3:** $c_1 = 50, c_2 = 45 \rightarrow c_1/c_2 = 1.11$ i.e., cost of repeated measures is relatively similar to the cost of new samples
+
+We then generate data for the two aforementioned hierarchical structures based on the cases of relative cost ratios. For both hierarchical structures, we generate cluster-level assignments with $X_i \sim \text{Bern}(0.5)$, reflecting simple randomization with an equal probability of treatment assignment.
+
+Next, we simulate the cluster-level mean and subject-level outcomes under two settings:
+
+For $Y_{ij} \sim$ normal distribution:
+
+-   Cluster-level mean: $\mu_i \mid X_i, \epsilon_i = \alpha + \beta X_i + \epsilon_i, \text{where} \epsilon \sim N(0, \gamma^2)$ We generate the cluster-level mean from a normal distribution with mean $\mu_{i0} = \alpha + \beta X_i$ and variance $\gamma^2$.
+
+-   Subject-level outcome: $Y_{ij} \mid \mu_i, e_{ij} = \mu_i + e_{ij}, \quad e_{ij} \sim N(0, \sigma^2)$ We generate the subject-level outcome from a normal distribution with mean $\mu_i$ and variance $\sigma^2$.
+
+For $Y_{ij} \sim$ Poisson distribution:
+
+-   Group-level mean: $\log(u_i) \sim N(\alpha + \beta X_i, \gamma^2)$ We generate the cluster-level mean from a normal distribution with mean $\mu_{i0} = \alpha + \beta X_i$ and variance $\gamma^2$, and exponentiate it to get the mean counts $\mu_i$
+
+-   Subject-level outcome: $Y_{ij} \mid \mu_i \sim Poisson(\mu_i)$ for each subject in the cluster We generate the subject-level outcome from a Poisson distribution with mean $\mu_i$.
+
+The number of simulation repetitions for each parameter combination is set to $n_{sim}$ = 500. A seed is set before every data generating mechanism for reproducibility.
+
+### **Estimand**
+
+Our estimand is the cluster average treatment effect $\beta$ in cluster randomized trial.
+
+### **Method**
+
+1\. For the normal distributed outcomes: We fit a linear mixed effects model to estimate $\beta$.
+
+2\. For the Poisson distributed outcomes: We fit a Poisson generalized linear mixed effects model to estimate $\beta$.
+
+We vary parameters $\alpha, \beta, \gamma, \text{and } \sigma$ and relative costs $c_1$ and $c_2$ to explore the impact of cost, inter-cluster variability and intra-cluster variability on the optimal G and R trade-off and the study design
+
+### **Performance measure**
+
+The performance metric we looked at is $Var(\hat{\beta})$ the variance of ${\beta}$ estimate from the mixed effect regression models, which quantifies the variability of the estimate of the treatment effect when repeated over multiple iterations. A smaller $Var(\hat{\beta})$ indicates that the estimator is more precise, whereas, a large $Var(\hat{\beta})$ would indicate less a reliable estimate of treatment effect.
+
+# Results
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = F,
+                      fig.align = "center",
+                      # fig.height = 5,
+                      # fig.width = 8.5,
+                      message = FALSE,
+                      warning = FALSE,
+                      tidy = TRUE,
+                      kable = TRUE
+)
+```
+
+```{r libraries}
+setwd("~/Desktop/PHP 2550 Pratical Data Analysis/Project 3")
+# Load libraries
+library(lme4)
+library(purrr)
+library(ggplot2)
+library(latex2exp)
+library(tidyverse)
+library(ggpubr) # arrange plots
+```
+
+```{r budget constraint}
+#///////////////////////////////////////////////////////////////////////////////
+#---- Budget constraint
+#///////////////////////////////////////////////////////////////////////////////
+
+# Setseed
+set.seed(1234)
+
+# Function for budget constraint
+budget_constraint <- function(max_cluster = 100, budget = 2000, c1 = 5, c2 = 1){
+  #' simulate data for cluster design given a budget constrain
+  #' @param budget, budget constraint
+  #' @param max_cluster, maximum number of clusters
+  #' @param c1, the cost for the first sample in each cluster
+  #' @param c2, cost for sampling additional sample in the cluster 
+  #' @return cluster_data, optimal cluster and observations based on constraint
+  
+  cluster_data <- data.frame(num_clusters = integer(), 
+                             observations = integer(), 
+                             total_cost = numeric())
+  
+  for(n in 4:max_cluster){
+    # Calculate the maximum number of observation based on the given budget constraint
+    optimal_obs = ((budget - n * c1) / (n * c2)) + 1
+    total_cost = n * (c1 + (floor(optimal_obs-1)) * c2)
+    
+    if(optimal_obs > 2 && total_cost >= (budget*0.95)){
+      cluster_data <- rbind(cluster_data, data.frame(num_clusters = n, 
+                                                     obs_per_cluster = floor(optimal_obs), 
+                                                     total_cost = total_cost,
+                                                     c1 = c1,
+                                                     c2 = c2))
+    }
+  }
+  return(cluster_data)
+}
+```
+
+```{r cost scenarios}
+# Run a list of cluster combinations
+
+# Case 1: c1/c2 = 5
+case_1 <- budget_constraint(max_cluster = 100, budget = 2000, c1 = 50, c2 = 10)
+
+# Case 2: c1/c2 = 1
+case_2 <- budget_constraint(max_cluster = 100, budget = 2000, c1 = 50, c2 = 1)
+
+# Case 3: c1/c2 = 0.25
+case_3 <- budget_constraint(max_cluster = 100, budget = 2000, c1 = 50, c2 = 45)
+```
+
+```{r, file = 'data generation.R'}
+```
+
+```{r, file = 'fit model.R'}
+```
+
+```{r}
+sep_column <- function(df){
+  df$num_clusters <- as.numeric(gsub(" Clusters .*", "", df$strategy))
+  df$num_observations <- as.numeric(gsub(".* Clusters | Observations", "", df$strategy))
+  return(df)
+}
+```
+
+```{r, eval=FALSE}
+# Finding the optimal strategy under case 1:
+# Set fixed parameter
+true.beta <- 1.5
+max.iter <- 1000
+
+set.seed(1234)
+sim_res1 <- data.frame(true.beta = numeric(0), 
+                                 strategy = character(0),
+                                 avg.beta.est = numeric(0),
+                                 avg.se = numeric(0),
+                                 var.beta.est = numeric(0),
+                                 var.se = numeric(0))
+names(sim_res1) <- c("true.beta" ,"strategy", "avg.beta.est", "avg.se", "var.beta.est", "var.se")
+
+for (i in 1:length(true.beta)) {
+    beta = true.beta[i]
+    
+    # Initialize a list to store data frames from each iteration
+    results_list <- vector("list", max.iter)
+    
+    for (j in 1:max.iter) {
+      df <- data_simulation(cluster_data = case_1, alpha = 0.5, beta = 1.5, sigma = 1, gamma = 1)
+      # Store each result as a data frame in a list
+      results_list[[j]] <- fit_model(simulated_data = df, beta = beta)
+    }
+    
+    # Combine all data frames into one
+    combined_results <- do.call(rbind, results_list)
+    combined_results$iteration <- rep(1:max.iter, each = length(df))
+    
+    # Calculate the mean of beta estimates and standard errors for each strategy
+    aggregated_results <- aggregate(cbind(beta_estimate, standard_error) ~ strategy, 
+                                    data = combined_results, 
+                                    FUN = function(x) {
+                                      c(mean = mean(as.numeric(x), na.rm = TRUE),
+                                        var = var(as.numeric(x), na.rm = TRUE))
+                                    })
+    
+    
+    # Prepare to append to the final data frame
+    aggregated_results <- do.call(data.frame, aggregated_results)
+    for (k in 1:nrow(aggregated_results)) {
+      new_row <- c(true.beta[i], as.character(aggregated_results$strategy[k]), 
+                   as.numeric(round(aggregated_results$beta_estimate.mean[k],3)), 
+                   as.numeric(round(aggregated_results$standard_error.mean[k],3)),
+                   as.numeric(round(aggregated_results$beta_estimate.var[k],3)), 
+                   as.numeric(round(aggregated_results$standard_error.var[k],3))
+      )
+      sim_res1 <- rbind(sim_res1, new_row)
+    }
+}
+
+names(sim_res1) <- c("true.beta" ,"strategy", "avg.beta.est", "avg.se", "var.beta.est", "var.se")
+
+sim_res1 <- sep_column(sim_res1)
+saveRDS(sim_res1, "sim_res1.rds")
+```
+
+```{r, eval=FALSE}
+# Finding optimal strategy under case 2:
+# Set fixed parameter
+true.beta <- 1.5
+max.iter <- 1000
+
+set.seed(1234)
+sim_res2 <- data.frame(true.beta = numeric(0), 
+                                 strategy = character(0),
+                                 avg.beta.est = numeric(0),
+                                 avg.se = numeric(0),
+                                 var.beta.est = numeric(0),
+                                 var.se = numeric(0))
+names(sim_res2) <- c("true.beta" ,"strategy", "avg.beta.est", "avg.se", "var.beta.est", "var.se")
+
+for (i in 1:length(true.beta)) {
+    beta = true.beta[i]
+    
+    # Initialize a list to store data frames from each iteration
+    results_list <- vector("list", max.iter)
+    
+    for (j in 1:max.iter) {
+      df <- data_simulation(cluster_data = case_2, alpha = 0.5, beta = 1.5, sigma = 1, gamma = 1)
+      # Store each result as a data frame in a list
+      results_list[[j]] <- fit_model(simulated_data = df, beta = beta)
+    }
+    
+    # Combine all data frames into one
+    combined_results <- do.call(rbind, results_list)
+    combined_results$iteration <- rep(1:max.iter, each = length(df))
+    
+    # Calculate the mean of beta estimates and standard errors for each strategy
+    aggregated_results <- aggregate(cbind(beta_estimate, standard_error) ~ strategy, 
+                                    data = combined_results, 
+                                    FUN = function(x) {
+                                      c(mean = mean(as.numeric(x), na.rm = TRUE),
+                                        var = var(as.numeric(x), na.rm = TRUE))
+                                    })
+    
+    
+    # Prepare to append to the final data frame
+    aggregated_results <- do.call(data.frame, aggregated_results)
+    for (k in 1:nrow(aggregated_results)) {
+      new_row <- c(true.beta[i], as.character(aggregated_results$strategy[k]), 
+                   as.numeric(round(aggregated_results$beta_estimate.mean[k],3)), 
+                   as.numeric(round(aggregated_results$standard_error.mean[k],3)),
+                   as.numeric(round(aggregated_results$beta_estimate.var[k],3)), 
+                   as.numeric(round(aggregated_results$standard_error.var[k],3))
+      )
+      sim_res2 <- rbind(sim_res2, new_row)
+    }
+}
+
+names(sim_res2) <- c("true.beta" ,"strategy", "avg.beta.est", "avg.se", "var.beta.est", "var.se")
+sim_res2 <- sep_column(sim_res2)
+saveRDS(sim_res2, "sim_res2.rds")
+```
+
+```{r, eval=FALSE}
+# Finding optimal strategy under case 3:
+# Set fixed parameter
+true.beta <- 1.5
+max.iter <- 1000
+
+set.seed(1234)
+sim_res3 <- data.frame(true.beta = numeric(0), 
+                                 strategy = character(0),
+                                 avg.beta.est = numeric(0),
+                                 avg.se = numeric(0),
+                                 var.beta.est = numeric(0),
+                                 var.se = numeric(0))
+names(sim_res3) <- c("true.beta" ,"strategy", "avg.beta.est", "avg.se", "var.beta.est", "var.se")
+
+for (i in 1:length(true.beta)) {
+    beta = true.beta[i]
+    
+    # Initialize a list to store data frames from each iteration
+    results_list <- vector("list", max.iter)
+    
+    for (j in 1:max.iter) {
+      df <- data_simulation(cluster_data = case_3, alpha = 0.5, beta = 1.5, sigma = 1, gamma = 1)
+      # Store each result as a data frame in a list
+      results_list[[j]] <- fit_model(simulated_data = df, beta = beta)
+    }
+    
+    # Combine all data frames into one
+    combined_results <- do.call(rbind, results_list)
+    combined_results$iteration <- rep(1:max.iter, each = length(df))
+    
+    # Calculate the mean of beta estimates and standard errors for each strategy
+    aggregated_results <- aggregate(cbind(beta_estimate, standard_error) ~ strategy, 
+                                    data = combined_results, 
+                                    FUN = function(x) {
+                                      c(mean = mean(as.numeric(x), na.rm = TRUE),
+                                        var = var(as.numeric(x), na.rm = TRUE))
+                                    })
+    
+    
+    # Prepare to append to the final data frame
+    aggregated_results <- do.call(data.frame, aggregated_results)
+    for (k in 1:nrow(aggregated_results)) {
+      new_row <- c(true.beta[i], as.character(aggregated_results$strategy[k]), 
+                   as.numeric(round(aggregated_results$beta_estimate.mean[k],3)), 
+                   as.numeric(round(aggregated_results$standard_error.mean[k],3)),
+                   as.numeric(round(aggregated_results$beta_estimate.var[k],3)), 
+                   as.numeric(round(aggregated_results$standard_error.var[k],3))
+      )
+      sim_res3 <- rbind(sim_res3, new_row)
+    }
+}
+
+names(sim_res3) <- c("true.beta" ,"strategy", "avg.beta.est", "avg.se", "var.beta.est", "var.se")
+sim_res3 <- sep_column(sim_res3)
+saveRDS(sim_res3, "sim_res3.rds")
+```
+
+## 1. Optimal strategies under different cost ratios
+
+```{r optimal-cluster, fig.cap="Variance of beta across clusters for cost ratios"}
+sim_res1 <- readRDS("sim_res1.rds")
+sim_res2 <- readRDS("sim_res2.rds")
+sim_res3 <- readRDS("sim_res3.rds")
+
+sim_res1$var.beta.est <- as.numeric(sim_res1$var.beta.est)
+sim_res1$num_clusters <- as.numeric(sim_res1$num_clusters)
+sim_res2$var.beta.est <- as.numeric(sim_res2$var.beta.est)
+sim_res2$num_clusters <- as.numeric(sim_res2$num_clusters)
+sim_res3$var.beta.est <- as.numeric(sim_res3$var.beta.est)
+sim_res3$num_clusters <- as.numeric(sim_res3$num_clusters)
+
+plot2 <- ggplot(data = sim_res1, aes(x = num_clusters, y = var.beta.est)) +
+  geom_line(color = "steelblue") +
+  geom_point(color = 4) +
+  theme_bw()  +
+  theme_bw() +
+  labs(x = "Number of clusters (G)", y = "", title = TeX("$C_1/C_2$ = 5")) +
+  theme(plot.title = element_text(size = 12, hjust = 0.5))+ 
+  coord_cartesian(xlim = c(4, 40), ylim = c(0.1 ,1.30))
+
+plot3 <- ggplot(data = sim_res2, aes(x = num_clusters, y = var.beta.est)) +
+  geom_line(color = "steelblue") +
+  geom_point(color = 4) +
+  theme_bw() +
+  labs(x = "", y = "", title = TeX("$C_1/C_2$ = 50")) +
+  theme(plot.title = element_text(size = 12, hjust = 0.5))+ 
+  coord_cartesian(xlim = c(4, 40), ylim = c(0.1 ,1.30))
+
+plot1 <- ggplot(data = sim_res3, aes(x = num_clusters, y = var.beta.est)) +
+  geom_line(color = "steelblue") +
+  geom_point(color = 4) +
+  theme_bw() + 
+  labs(x = "", y = TeX("Var($\\hat{\\beta}$)"), title = TeX("$C_1/C_2$ = 1.11")) +
+  theme(plot.title = element_text(size = 12, hjust = 0.5)) + 
+  coord_cartesian(xlim = c(4, 40), ylim = c(0.1 ,1.30))
+
+ggarrange(plot1, plot2, plot3, ncol = 3, nrow = 1, common.legend = TRUE, legend = "bottom")
+```
+
+When the cost of an additional sample $c_2$ is relatively close to the cost of the first sample ($c_1$), i.e., $c_1 \approx c_2$, it is more likely that we would start a new cluster (G) rather than resampling from the same cluster. In the case of slightly higher cost ratio ($c_1/c_2 = 5$), where the first sample is somewhat more expensive then resampling, we tend to balance between G and R to reach a optimal strategy. For the case where $c_2 << c_1$, it is better to maximize R and limit the number of clusters (G). Figure 1 shows the relationship between the $Var(\hat{\beta})$ and number of clusters (G) under 3 different cases of cost ratios. In the left panel, for $c_1/c_2 = 1.11$, the optimal strategy corresponding to the lowest variance is G = 21 Clusters and R = 2. For cost ratio $c_1/c_2 = 5$ and $c_1/c_2 = 50$, we observe a slower reduction in $Var(\hat{\beta})$ as G increases, with the variance curve flattening. hypothetically, under certain constraint, the optimal strategy would align with this flattened region, resembling diminishing returns for additional cluster. However, to fully utilize our given budget, the optimal strategy would be the lowest $Var(\hat{\beta})$ on the curve, which is G = 33, R = 2 for $c_1/c_2 = 5$, and G = 37, R = 5 for $c_1/c_2 = 50$.
+
+```{r, file = 'tune parameters.R'}
+```
+
+```{r, file = 'vary all parameters.R'}
+```
+
+## 2. Parameters and costs impact on study design
+
+### 2.1 Normal Hierarchical Model
+
+We examined how the cost ratios and the underlying parameters ($\alpha$, $\beta$, $\gamma^2$, $\sigma^2$) in the linear hierarchical model influence the optimal strategy under a budget constraint. $\alpha$ is the intercept and, therefore, has no effect on $\beta$ estimation. $\beta$ is the treatment effect, meaning higher values for $\beta$ make it much easier to detect the treatment effect due to higher signal-to-noise ratios. Thus, for higher true $\beta$ values, the variance of $\hat{\beta}$ is lower. In this model, $\sigma^2$ represents the intra-cluster variance, while $\gamma^2$ represents the inter-cluster variance. Figure 2 illustrates that as $\gamma$ increases, $Var(\hat{\beta})$ also increases across all scenarios.
+
+```{r vary beta}
+# set.seed(1234)
+# norm_case1_beta <- tune_beta(500, case_1[case_1$num_clusters == 33,])
+# norm_case2_beta <- tune_beta(500, case_2[case_2$num_clusters == 37,])
+# norm_case3_beta <- tune_beta(500, case_3[case_3$num_clusters == 21,])
+
+# Save RDS file
+# saveRDS(norm_case1_beta, "norm_case1_beta.rds")
+# saveRDS(norm_case2_beta, "norm_case2_beta.rds")
+# saveRDS(norm_case3_beta, "norm_case3_beta.rds")
+
+norm_case1_beta <- readRDS("norm_case1_beta.rds")
+norm_case2_beta <- readRDS("norm_case2_beta.rds")
+norm_case3_beta <- readRDS("norm_case3_beta.rds")
+
+norm_beta <- rbind(norm_case1_beta, norm_case2_beta,norm_case3_beta)
+```
+
+```{r vary gamma sigma}
+# set.seed(1234)
+# beta_vec <- c(1.5)
+# gamma_vec <- c(0.01, 0.05, 0.1, 0.15, 0.3, 0.5, 1, 2, 3, 4, 5)
+# sigma_vec <- c(0.5, 1, 2)
+# strategy <- data.frame(num_clusters = c(33, 37, 21), obs_per_cluster = c(2, 5, 2))
+# norm_res1 <- tune_all(max.iter = 500, strategy = strategy, beta_vec = beta_vec, gamma_vec = gamma_vec, sigma_vec = sigma_vec)
+# norm_res1 <- sep_column(norm_res1)
+# 
+# saveRDS(norm_res1, "norm_res1.rds")
+```
+
+```{r gamma, fig.cap="Variation of beta by gamma and sigma"}
+norm_res1 <- readRDS("norm_res1.rds")
+
+cols.num <- c("true.beta","gamma","sigma","var.beta.est")
+norm_res1[cols.num] <- sapply(norm_res1[cols.num],as.numeric)
+norm_res1 <- norm_res1 %>%
+  mutate(gs_ratio = gamma/sigma)
+
+# Plot gamma vs. variance 
+ggplot(data = norm_res1, aes(x = gamma, y = var.beta.est, group = strategy, colour = strategy)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~sigma, labeller = label_both) +#labeller = labeller("0.5" = TeX("$\\sigma = 0.5$"), "1" = "1", "2" = "2")) +
+  theme_bw() +
+  guides(colour=guide_legend(title="Study design")) +
+  theme(strip.background = element_rect(fill="lightblue", size=1, color="darkblue"),
+        legend.position="bottom") +
+  labs(x = TeX("$\\gamma$"), y = TeX("Var($\\hat{\\beta}$)")) +
+  scale_color_manual(labels = c(TeX("G = 21, R = 2, $C_1$ = 50, $C_2$ = 10"),
+                                TeX("G = 33, R = 2, $C_1$ = 50, $C_2$ = 1"),
+                                TeX("G = 37, R = 5, $C_1$ = 50, $C_2$ = 45")), values = c("#5B4DA2","steelblue","#df65b0"))
+```
+
+```{r gamma_sigma_ratio, fig.cap="Variance of beta vs. gamma/sigma ratio"}
+ggplot(data = norm_res1, aes(x = gs_ratio, y = var.beta.est, fill = strategy, color = strategy)) +
+  geom_point() +
+  geom_smooth(se = T, method = 'loess') +
+  theme_bw() +
+  theme(legend.position="right") +
+  guides(fill=guide_legend(title="Study design")) +
+   guides(colour=guide_legend(title="Study design")) +
+  labs(x = TeX("gamma-sigma ratio$"), y = TeX("Var($\\hat{\\beta}$)")) +
+  scale_fill_manual(labels = c(TeX("G = 21, R = 2, $C_1$ = 50, $C_2$ = 10"),
+                                TeX("G = 33, R = 2, $C_1$ = 50, $C_2$ = 1"),
+                                TeX("G = 37, R = 5, $C_1$ = 50, $C_2$ = 45")), values = c("#5B4DA2","steelblue","#df65b0"))+
+  scale_color_manual(labels = c(TeX("G = 21, R = 2, $C_1$ = 50, $C_2$ = 10"),
+                                TeX("G = 33, R = 2, $C_1$ = 50, $C_2$ = 1"),
+                                TeX("G = 37, R = 5, $C_1$ = 50, $C_2$ = 45")), values = c("#5B4DA2","steelblue","#df65b0"))
+```
+
+Figure 3 shows the relationship between the $\gamma/\sigma$ ratio and the variance of $\hat{\beta}$ for different study designs. The pink study design consistently shows the lowest variance across all gamma-sigma ratios. Meanwhile the purple study design shows highest variance, especially at higher gamma-sigma ratios, indicating that fewer clusters and subjects lead to less precise estimates of treatment effect. The $\gamma/\sigma$ ratio is a measure of the relative importance of inter-cluster variability ($\gamma$) to intra-cluster variability ($\sigma$). A higher $\gamma/\sigma$ ratio indicates that inter-cluster variability is more significant or dominant than intra-cluster variability. We observe that the variance of $\hat{\beta}$ increases with the $\gamma/\sigma$ ratio, indicating that the precision of the treatment effect estimate decreases as the relative importance of inter-cluster variability increases.
+
+### 2.2 Poisson Hierarchical Model
+
+```{r, file = 'poisson hierarchical model.R'}
+```
+
+```{r, file = 'vary parameters poisson.R'}
+```
+
+```{r}
+set.seed(1234)
+# alpha <- 1
+# beta_vec <- c(0.5,1, 1.5, 2)
+# gamma_vec <- c(0.05, 0.1, 0.15, 0.5, 1,2,3)
+# strategy <- data.frame(num_clusters = c(33, 37, 21), obs_per_cluster = c(2, 5, 2))
+# poisson_res1 <- tune_all(max.iter = 500, strategy = strategy, beta_vec = beta_vec, gamma_vec = gamma_vec, alpha_vec = alpha)
+# poisson_res1 <- sep_column(poisson_res1)
+
+# calpha_vec <- c(0.5, 1, 2, 3)
+# beta_vec2 <- c(1)
+# gamma_vec2 <- c(0.1, 0.5, 1)
+# strategy <- data.frame(num_clusters = c(33, 37, 21), obs_per_cluster = c(2, 5, 2))
+# poisson_res2 <- tune_all(max.iter = 500, strategy = strategy, beta_vec = beta_vec2, gamma_vec = gamma_vec2, alpha_vec = alpha_vec)
+# poisson_res2 <- sep_column(poisson_res2)
+# saveRDS(poisson_res2, "poisson_res2.rds")
+```
+
+```{r poisson_gamma, fig.cap="Impact of Gamma on Variance of Beta"}
+poisson_res1 <- readRDS("poisson_res1.rds")
+cols.num <- c("true.beta","gamma","alpha","var.beta.est")
+poisson_res1[cols.num] <- sapply(poisson_res1[cols.num],as.numeric)
+
+beta_names <- c(
+  '0.5'="True Beta: 0.5",
+  '1'= "True Beta: 1",
+  '1.5'="True Beta: 1.5",
+  '2'="True Beta: 2"
+)
+
+ggplot(poisson_res1, aes(x = gamma, y = var.beta.est, color = strategy)) +
+  geom_point() +
+  geom_line() +
+  labs(
+  #  title = "Impact of Gamma and Study Design on Variance of Beta",
+    x = TeX("$\\gamma$"),
+    y = TeX("Var($\\hat{\\beta}$)"),
+    color = "Study design"
+  ) +
+  facet_wrap(~true.beta, labeller = as_labeller(beta_names)) +
+  theme_classic() +
+  theme(
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 9),
+    legend.position="bottom"
+  ) +
+  theme(strip.background = element_rect(fill="lightblue", size=1, color="darkblue")) +
+  scale_color_manual(labels = c(TeX("G = 21, R = 2, $C_1$ = 50, $C_2$ = 10"),
+                               TeX("G = 33, R = 2, $C_1$ = 50, $C_2$ = 1"),
+                               TeX("G = 37, R = 5, $C_1$ = 50, $C_2$ = 45")), values = c("#5B4DA2","steelblue","#df65b0"))
+```
+
+```{r poisson_beta, fig.cap="Impact of Beta on Variance"}
+gamma_names <- c(
+  '0.15'="Gamma: 0.15",
+  '0.3'="Gamma: 0.30",
+  '0.5'="Gamma: 0.5",
+  '1'="Gamma: 1",
+  '2'="Gamma: 2",
+  '3'="Gamma: 3"
+)
+poisson_res1 <- poisson_res1 %>%
+  filter(gamma > 0.10)
+
+ggplot(poisson_res1, aes(x = true.beta, y = var.beta.est, color = strategy)) +
+  geom_point() +
+  geom_line() +
+  labs(
+  #  title = "Impact of Gamma and Study Design on Variance of Beta",
+    x = TeX("$\\beta$"),
+    y = TeX("Var($\\hat{\\beta}$)"),
+    color = "Study design"
+  ) +
+  facet_wrap(~gamma, labeller = as_labeller(gamma_names)) +
+  theme_classic() +
+  theme(
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 9),
+    legend.position="bottom"
+  ) +
+  theme(strip.background = element_rect(fill="lightblue", size=1, color="darkblue")) +
+  scale_color_manual(labels = c(TeX("G = 21, R = 2, $C_1$ = 50, $C_2$ = 10"),
+                               TeX("G = 33, R = 2, $C_1$ = 50, $C_2$ = 1"),
+                               TeX("G = 37, R = 5, $C_1$ = 50, $C_2$ = 45")), values = c("#5B4DA2","steelblue","#df65b0"))
+
+```
+
+Figure 4 shows the trend of $Var(\hat{\beta})$ across different values of $\gamma$ for the Poisson hierarchical model. We observe a positive trend in $Var(\hat{\beta})$ as $\gamma$ increases, indicating that the variance of the treatment effect estimate increases with higher inter-cluster variability. This trend is consistent across different true $\beta$ values, with higher $\beta$ values exhibiting lower variance in $\hat{\beta}$ estimates. Study designs with larger $G$ and $R$ have lower $\text{Var}(\hat{\beta})$, with $G = 37, R = 5, c_1 = 50, c_2 = 45$ yielding the most precise estimates, while designs with fewer clusters and subjects (e.g., $G = 21, R = 2, c_1 = 50, c_2 = 10$) result in higher variance. There's also some fluctuation in $Var(\hat{\beta})$ across $\beta$ values as $\gamma$ gets larger.
+
+# Discussion and limitations
+
+For small $\gamma$ (e.g., $\gamma < 1$), the ideal study design prioritizes more observations ($R$) and fewer clusters ($G$). This is because the treatment effect is relatively homogeneous across clusters, and adding new clusters does not capture additional variability, and therefore does not meaningfully improve the precision of the treatment effect estimate. In this case, increasing $R$ (repeated measurements within a cluster) is more cost-effective.
+
+In contrast, when $\gamma$ is large (e.g., $\gamma > 1$), the optimal strategy is to increasing the number of clusters ($G$) to better capture the variability across clusters. In this scenario, adding more observations ($R$) within the same cluster becomes less effective, as repeated measurements are highly correlated and provide limited additional information. Therefore, reducing $R$ and allocating resources to increase $G$ is a more efficient strategy for improving the precision of the treatment effect estimate.
+
+When the cost of initiating a new cluster ($c_1$) is higher than the cost of taking repeated measurements ($c_2$), the study design should balance $G$ and $R$ based on the value of $\gamma$. For small $\gamma$, it is more cost-effective to allocate the budget toward increasing $R$. Conversely, for large $\gamma$, the budget should be allocated to maximize $G$, as capturing variability across clusters becomes more critical to improving the precision of the treatment effect estimate.
+
+There is a limitation to the simulation study, as we only considered a fixed costs for $c_1$ and $c_2$ for all the clusters. In practice, the cost of sampling and repeated measures may vary across clusters. Future studies could consider a more flexible cost structure that allows for varying costs across clusters.
+
+In addition, the number of simulation iterations could be increased to improve the robustness of the results. A larger number of iterations, such as $n_{sim} = 1000$ would provide more accurate estimates of $\hat{\beta}$ and the variance of $\hat{\beta}$.
+
+A key limitation is that the model fitting procedure is associated with the "boundary (singular)" warning in mixed-effects models, indicating that the model has likely encountered singular fits when the random effects parameters are near zero. Other warnings, such as non-convergence, were also encountered in the simulation study and could not be resolved by adjusting the model specifications for this simulation study.
+
+# Conclusion
+
+This simulation demonstrates the impact of underlying parameters ($\gamma$, $\sigma$, $\alpha$, $\beta$) and study design parameters (number of clusters $G$, subjects per cluster $R$, and costs $c_1, c_2$) on the precision of $\hat{\beta}$, the treatment effect estimate. The findings suggest that increasing $G$ (number of clusters) is generally more effective than increasing $R$ (subjects per cluster) for improving precision, particularly when $\gamma$ is large.
